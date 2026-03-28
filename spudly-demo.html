@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Spudly Donuts — AI Concierge Demo</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#fff8f0;--surface:#ffffff;--surface2:#fff3e6;--surface3:#ffe8cc;
+  --border:#f0d8c0;--border2:#e0c4a0;--text:#2a1a0a;--text2:#6b4a2a;--text3:#9e7a55;
+  --red:#c0392b;--red-light:#e74c3c;--red-pale:rgba(192,57,43,0.08);
+  --cream:#fff8f0;--brown:#4a2c0a;
+  --sab:env(safe-area-inset-bottom,0px);--sat:env(safe-area-inset-top,0px);
+  --touch:44px;--rlg:18px;--rmd:12px;--rsm:8px;
+  --fd:'Fredoka One',cursive;--fu:'Nunito',sans-serif;
+}
+body{font-family:var(--fu);background:var(--bg);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+.demo-page{width:100%;max-width:480px;display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center;}
+.demo-logo{font-family:var(--fd);font-size:36px;color:var(--red);letter-spacing:1px;}
+.demo-tagline{font-size:13px;color:var(--text3);letter-spacing:0.05em;}
+.demo-note{font-size:11px;color:#bbb;}
+
+/* Launcher */
+.launcher-wrap{position:fixed;bottom:calc(24px + var(--sab));right:20px;display:flex;flex-direction:column;align-items:flex-end;gap:10px;z-index:99997;}
+.teaser-bubble{background:var(--text);color:#fff;font-family:var(--fu);font-size:13px;font-weight:600;padding:10px 16px;border-radius:20px 20px 4px 20px;box-shadow:0 4px 20px rgba(42,26,10,0.25);cursor:pointer;max-width:200px;text-align:center;line-height:1.35;animation:teaser-in 0.5s ease 1.2s both;}
+.teaser-bubble.hidden{display:none;}
+@keyframes teaser-in{from{opacity:0;transform:translateY(10px) scale(.95);}to{opacity:1;transform:translateY(0) scale(1);}}
+#sp-btn{width:62px;height:62px;border-radius:50%;background:linear-gradient(135deg,var(--red),#922b21);box-shadow:0 4px 20px rgba(192,57,43,0.45),0 0 0 3px rgba(192,57,43,0.2);display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;font-size:28px;transition:transform .2s;z-index:99998;}
+#sp-btn:hover{transform:scale(1.06);}
+#sp-btn.open{background:#444;}
+@keyframes sp-pulse{0%{transform:scale(.9);opacity:.8}70%{transform:scale(1.5);opacity:0}100%{transform:scale(1.5);opacity:0}}
+#sp-btn::before{content:'';position:absolute;width:62px;height:62px;border-radius:50%;border:2px solid var(--red-light);animation:sp-pulse 2s ease-out 1s infinite;pointer-events:none;}
+#sp-btn.open::before{animation:none;}
+
+#sp-veil{position:fixed;inset:0;background:rgba(42,26,10,.55);backdrop-filter:blur(3px);z-index:99998;opacity:0;pointer-events:none;transition:opacity .3s;}
+#sp-veil.on{opacity:1;pointer-events:all;}
+
+#sp-box{position:fixed;z-index:99999;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);overflow:hidden;bottom:calc(100px + var(--sab));right:20px;width:385px;height:610px;border-radius:var(--rlg);box-shadow:0 20px 60px rgba(42,26,10,.25);transform:translateY(30px) scale(.96);opacity:0;pointer-events:none;transition:transform .32s cubic-bezier(.34,1.2,.64,1),opacity .25s;}
+#sp-box.on{transform:translateY(0) scale(1);opacity:1;pointer-events:all;}
+@media(max-width:479px){
+  #sp-box{bottom:0;right:0;left:0;width:100%;height:92dvh;border-radius:var(--rlg) var(--rlg) 0 0;border-bottom:none;transform:translateY(100%);opacity:1;}
+  #sp-box.on{transform:translateY(0);}
+}
+
+#sp-hd{flex-shrink:0;background:linear-gradient(135deg,var(--red),#922b21);padding:14px 16px 12px;}
+.sp-hrow{display:flex;align-items:center;gap:12px;}
+.sp-av{width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
+.sp-hn{font-family:var(--fd);font-size:16px;color:#fff;letter-spacing:.03em;}
+.sp-hs{font-size:11px;color:rgba(255,255,255,0.75);display:flex;align-items:center;gap:5px;margin-top:2px;}
+.sp-dot{width:6px;height:6px;background:#fff;border-radius:50%;animation:sp-blink 2s infinite;}
+@keyframes sp-blink{0%,100%{opacity:1}50%{opacity:.3}}
+#sp-x{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.15);color:rgba(255,255,255,0.8);font-size:18px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;transition:all .2s;flex-shrink:0;}
+#sp-x:hover{background:rgba(255,255,255,0.25);color:#fff;}
+
+#sp-msgs{flex:1;overflow-y:auto;padding:16px 14px 8px;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth;background:var(--bg);}
+#sp-msgs::-webkit-scrollbar{width:3px;}
+#sp-msgs::-webkit-scrollbar-thumb{background:var(--border2);}
+@keyframes sp-mi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.sp-msg{display:flex;align-items:flex-end;gap:8px;max-width:92%;animation:sp-mi .25s ease;}
+.sp-msg.b{align-self:flex-start;}.sp-msg.u{align-self:flex-end;flex-direction:row-reverse;}
+.sp-mav{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--red),#922b21);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;margin-bottom:2px;}
+.sp-mb{padding:10px 14px;border-radius:16px;font-family:var(--fu);font-size:13px;line-height:1.55;}
+.sp-msg.b .sp-mb{background:var(--surface);border:1px solid var(--border);color:var(--text);border-bottom-left-radius:4px;}
+.sp-msg.u .sp-mb{background:linear-gradient(135deg,var(--red),#922b21);color:#fff;font-weight:600;border-bottom-right-radius:4px;}
+.sp-tdots{display:flex;gap:4px;padding:8px 4px;align-items:center;}
+@keyframes sp-bn{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-6px);opacity:1}}
+.sp-tdots span{width:7px;height:7px;border-radius:50%;background:var(--red);animation:sp-bn 1.2s ease infinite;}
+.sp-tdots span:nth-child(2){animation-delay:.18s;}.sp-tdots span:nth-child(3){animation-delay:.36s;}
+
+/* Menu cards */
+.sp-cards{display:flex;flex-direction:column;gap:8px;max-width:300px;}
+.sp-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rmd);padding:12px;transition:border-color .2s;}
+.sp-card:hover{border-color:var(--red);}
+.sp-card-emoji{font-size:28px;margin-bottom:6px;}
+.sp-card-name{font-family:var(--fd);font-size:15px;color:var(--text);margin-bottom:4px;}
+.sp-card-desc{font-size:12px;color:var(--text3);line-height:1.45;margin-bottom:8px;}
+.sp-card-btn{width:100%;padding:8px;background:linear-gradient(135deg,var(--red),#922b21);color:#fff;border:none;border-radius:var(--rsm);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--fu);transition:filter .15s;}
+.sp-card-btn:hover{filter:brightness(1.1);}
+.sp-card-btn.ordered{background:var(--surface3);color:var(--text2);border:1px solid var(--border2);}
+
+/* Catering form */
+.sp-catering{background:var(--surface);border:1px solid var(--red);border-radius:var(--rmd);padding:14px;max-width:300px;}
+.sp-catering-title{font-family:var(--fd);font-size:15px;color:var(--text);margin-bottom:4px;}
+.sp-catering-sub{font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.45;}
+.sp-catering input,.sp-catering select{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--rsm);padding:8px 10px;font-size:13px;color:var(--text);font-family:var(--fu);margin-bottom:8px;outline:none;}
+.sp-catering input:focus,.sp-catering select:focus{border-color:var(--red);}
+.sp-catering-btn{width:100%;padding:9px;background:linear-gradient(135deg,var(--red),#922b21);color:#fff;border:none;border-radius:var(--rsm);font-size:13px;font-weight:700;cursor:pointer;font-family:var(--fu);}
+
+/* Deal */
+.sp-deal{background:var(--surface2);border:1px solid var(--border2);border-radius:var(--rmd);padding:12px 14px;max-width:300px;}
+.sp-deal-name{font-family:var(--fd);font-size:14px;color:var(--text);margin-bottom:4px;}
+.sp-deal-desc{font-size:12px;color:var(--text2);line-height:1.45;margin-bottom:10px;}
+.sp-deal-btn{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,var(--red),#922b21);color:#fff;border:none;border-radius:var(--rsm);font-size:12px;font-weight:700;padding:7px 14px;cursor:pointer;font-family:var(--fu);}
+
+#sp-cw{flex-shrink:0;padding:6px 14px 8px;overflow-x:auto;background:var(--bg);scrollbar-width:thin;}
+#sp-ch{display:flex;gap:6px;width:max-content;}
+.sp-chip{white-space:nowrap;padding:8px 14px;border:1px solid var(--border2);border-radius:20px;font-family:var(--fu);font-size:13px;color:var(--text2);background:var(--surface);transition:all .15s;min-height:var(--touch);display:flex;align-items:center;cursor:pointer;}
+.sp-chip:hover{border-color:var(--red);color:var(--red);background:var(--red-pale);}
+
+#sp-inp-row{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:10px 14px calc(10px + var(--sab));border-top:1px solid var(--border);background:var(--surface);}
+#sp-inp{flex:1;height:var(--touch);background:var(--surface2);border:1px solid var(--border2);border-radius:22px;padding:0 16px;font-size:16px;color:var(--text);font-family:var(--fu);outline:none;-webkit-appearance:none;}
+#sp-inp::placeholder{color:var(--text3);}
+#sp-inp:focus{border-color:var(--red);}
+#sp-send{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--red),#922b21);color:#fff;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:none;cursor:pointer;}
+#sp-send:disabled{opacity:.4;pointer-events:none;}
+#sp-ft{flex-shrink:0;text-align:center;padding:4px 0 6px;font-family:var(--fu);font-size:10px;color:var(--border2);letter-spacing:.05em;background:var(--surface);}
+
+.sp-qp{display:flex;gap:4px;margin-bottom:4px;}
+.sp-qd{flex:1;height:3px;background:var(--border);border-radius:2px;transition:background .3s;}
+.sp-qd.done{background:var(--red);}.sp-qd.active{background:var(--red-light);}
+</style>
+</head>
+<body>
+
+<div class="demo-page">
+  <div class="demo-logo">🍩 Spudly Donuts</div>
+  <div class="demo-tagline">Gourmet Homemade Donuts · Lindon & Lehi, Utah</div>
+  <div class="demo-note">Shopflow AI Demo — gocannaflow.com</div>
+</div>
+
+<div class="launcher-wrap">
+  <div class="teaser-bubble" id="teaser" onclick="spShow()">
+    🍩 Order donuts or book catering →
+  </div>
+  <button id="sp-btn" onclick="spShow()">🍩</button>
+</div>
+
+<div id="sp-veil" onclick="spHide()"></div>
+
+<div id="sp-box">
+  <div id="sp-hd">
+    <div class="sp-hrow">
+      <div class="sp-av">🍩</div>
+      <div class="sp-hi" style="flex:1;min-width:0">
+        <div class="sp-hn">Sunny</div>
+        <div class="sp-hs"><span class="sp-dot"></span>Spudly Donuts Assistant</div>
+      </div>
+      <button id="sp-x" onclick="spHide()">✕</button>
+    </div>
+  </div>
+  <div id="sp-msgs"></div>
+  <div id="sp-cw"><div id="sp-ch"></div></div>
+  <div id="sp-inp-row">
+    <input id="sp-inp" type="text" placeholder="Ask about flavors, catering, orders…" autocomplete="off" enterkeyhint="send"/>
+    <button id="sp-send">➤</button>
+  </div>
+  <div id="sp-ft">Powered by Shopflow AI ✦</div>
+</div>
+
+<script>
+const PROXY='https://shopflow-demo-proxy-production.up.railway.app/api/chat';
+const ORDER_URL='https://spudlydonuts.toast.site';
+const CATERING_URL='https://www.spudlydonuts.com/catering';
+const BIZ_URL='https://www.spudlydonuts.com/businesses';
+
+const MENU=[
+  {id:'classic',emoji:'🍩',name:'Classic Glazed',tag:'Fan Favorite',desc:'Our signature homemade glazed donut — light, fluffy, and perfectly sweet. Made fresh daily.'},
+  {id:'specialty',emoji:'✨',name:'Specialty Donuts',tag:'Rotating Flavors',desc:'Seasonal and specialty flavors that rotate regularly. Think maple bacon, fruity pebbles, birthday cake, and more.'},
+  {id:'boxes',emoji:'📦',name:'Donut Boxes',tag:'Perfect for Sharing',desc:'Order by the box — perfect for office meetings, family gatherings, or just treating yourself. Mix and match flavors.'},
+  {id:'catering',emoji:'🎉',name:'Event Catering',tag:'Weddings & Parties',desc:'We\'d love to be at your next event! Custom donut spreads for weddings, birthday parties, corporate events, and more.'},
+  {id:'corporate',emoji:'🏢',name:'Corporate Delivery',tag:'Employee Appreciation',desc:'Reward your team with a recurring donut subscription. Flexible delivery schedule to fit your business needs.'},
+];
+
+const DEALS=[
+  {name:'🎉 Catering for Your Next Event',desc:'From weddings to birthday parties to corporate lunches — Spudly Donuts makes any event sweeter. Fill out a catering inquiry and we\'ll be in touch!',cta:'Submit Catering Inquiry',url:CATERING_URL},
+  {name:'🏢 Corporate Donut Subscription',desc:'Nothing shows employee appreciation like recurring boxes of Spudly Donuts. Subscribe for flexible weekly or monthly delivery.',cta:'Learn More',url:BIZ_URL},
+];
+
+const STORE={
+  locations:['569 N State St, Suite 1E, Lindon, UT 84042','305 S 850 E Unit 101A, Lehi, UT 84043'],
+  order:'Order online at spudlydonuts.toast.site',
+  catering:'Submit a catering inquiry at spudlydonuts.com/catering',
+};
+
+let open_=false,loading=false,convo=[],answers={};
+const msgs=document.getElementById('sp-msgs');
+const ch=document.getElementById('sp-ch');
+const inp=document.getElementById('sp-inp');
+const send=document.getElementById('sp-send');
+
+const QUIZ=[
+  {id:'reason',q:'What brings you to Spudly today? 🍩',opts:[
+    {l:'🛒 Order donuts for myself',v:'personal'},
+    {l:'🎉 Plan a party or event',v:'event'},
+    {l:'🏢 Corporate / office order',v:'corporate'},
+    {l:'🎁 Looking for a gift idea',v:'gift'},
+    {l:'🍩 Just browsing flavors',v:'browse'},
+  ]},
+  {id:'size',q:'How many people are you feeding?',opts:[
+    {l:'🙋 Just me (1–2 people)',v:'small'},
+    {l:'👨‍👩‍👧 Small group (3–12)',v:'group'},
+    {l:'🎊 Medium event (13–50)',v:'medium'},
+    {l:'🏟️ Large event (50+)',v:'large'},
+  ]},
+  {id:'timing',q:'When do you need them?',opts:[
+    {l:'⚡ Today or tomorrow',v:'asap'},
+    {l:'📅 This week',v:'week'},
+    {l:'🗓️ Planning ahead',v:'ahead'},
+  ]},
+];
+
+function spShow(){
+  open_=true;
+  document.getElementById('sp-btn').classList.add('open');
+  document.getElementById('sp-box').classList.add('on');
+  document.getElementById('sp-veil').classList.add('on');
+  document.getElementById('teaser').classList.add('hidden');
+  if(!msgs.children.length)startQuiz();
+  setTimeout(()=>inp.focus(),300);
+}
+function spHide(){
+  open_=false;
+  document.getElementById('sp-btn').classList.remove('open');
+  document.getElementById('sp-box').classList.remove('on');
+  document.getElementById('sp-veil').classList.remove('on');
+}
+
+function startQuiz(){
+  typing(500,()=>{
+    botMsg('Hey there! Welcome to Spudly Donuts 🍩\n\nI\'m **Sunny**, your donut guide! We make gourmet homemade donuts fresh daily at our Lindon and Lehi locations.\n\nLet me help you get your donut fix!');
+    setTimeout(()=>quiz(0),600);
+  });
+}
+
+function quiz(step){
+  if(step>=QUIZ.length){recommend();return;}
+  const q=QUIZ[step];
+  const prog='<div class="sp-qp">'+QUIZ.map((_,i)=>`<div class="sp-qd${i<step?' done':i===step?' active':''}"></div>`).join('')+'</div>';
+  typing(350,()=>{
+    botMsg(prog+q.q);
+    chips(q.opts.map(o=>({t:o.l,fn:()=>{noChips();answers[q.id]=o.v;userMsg(o.l);quiz(step+1);}})));
+  });
+}
+
+function recommend(){
+  const reason=answers.reason||'personal';
+  const size=answers.size||'small';
+  const timing=answers.timing||'week';
+
+  typing(600,()=>{
+    if(reason==='corporate'||size==='large'||size==='medium'){
+      botMsg('Spudly is perfect for your group! 🎉 Here\'s what I\'d recommend:');
+      setTimeout(()=>showCards([MENU[3],MENU[4],MENU[2]]),300);
+      setTimeout(()=>showDeal(DEALS[1]),500);
+    } else if(reason==='event'){
+      botMsg('We\'d love to be at your event! 🎉 Here\'s how we can help:');
+      setTimeout(()=>showCards([MENU[3],MENU[2],MENU[1]]),300);
+      setTimeout(()=>showDeal(DEALS[0]),500);
+    } else {
+      botMsg(timing==='asap'?'Great news — we\'re open today! Here\'s how to get your donuts fast 🍩':'Here\'s what I\'d recommend for you 🍩');
+      setTimeout(()=>showCards([MENU[0],MENU[1],MENU[2]]),300);
+    }
+    setTimeout(()=>{
+      chips([
+        {t:'🛒 Order online now',fn:()=>{window.open(ORDER_URL,'_blank');}},
+        {t:'🎉 Book catering',fn:()=>{noChips();showCateringForm();}},
+        {t:'📍 Find a location',fn:()=>aiChat('Where are your locations?')},
+        {t:'🍩 Ask about flavors',fn:()=>aiChat('What flavors do you have right now?')},
+      ]);
+    },800);
+  });
+}
+
+function showCards(items){
+  const cr=mk('div','sp-cards');
+  items.slice(0,3).forEach(item=>{
+    const card=mk('div','sp-card');
+    card.innerHTML=`
+      <div class="sp-card-emoji">${item.emoji}</div>
+      <div class="sp-card-name">${item.name}</div>
+      <div class="sp-card-tag" style="font-size:10px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;">${item.tag}</div>
+      <div class="sp-card-desc">${item.desc}</div>
+      <button class="sp-card-btn" onclick="orderItem(this,'${item.name}','${item.id}')">
+        ${item.id==='catering'||item.id==='corporate'?'Inquire Now →':'Order Now →'}
+      </button>`;
+    cr.appendChild(card);
+  });
+  msgs.appendChild(botRow(cr));
+  scrollBot();
+}
+
+function orderItem(btn,name,id){
+  btn.textContent='✓ On it!';btn.classList.add('ordered');
+  if(id==='catering'){showCateringForm();}
+  else if(id==='corporate'){window.open(BIZ_URL,'_blank');}
+  else{window.open(ORDER_URL,'_blank');}
+}
+
+function showCateringForm(){
+  const f=mk('div','sp-catering');
+  f.innerHTML=`
+    <div class="sp-catering-title">🎉 Catering Inquiry</div>
+    <div class="sp-catering-sub">Tell us about your event and we'll reach out with details and pricing!</div>
+    <input id="c-name" placeholder="Your name" />
+    <input id="c-email" placeholder="Email address" type="email" />
+    <input id="c-event" placeholder="Event type (wedding, birthday, corporate…)" />
+    <input id="c-date" placeholder="Event date" type="date" />
+    <select id="c-size">
+      <option value="">Estimated guest count</option>
+      <option>Under 25</option><option>25–50</option><option>50–100</option><option>100+</option>
+    </select>
+    <button class="sp-catering-btn" onclick="submitCatering(this)">Send Catering Inquiry 🍩</button>`;
+  msgs.appendChild(botRow(f));
+  scrollBot();
+}
+
+function submitCatering(btn){
+  const name=document.getElementById('c-name').value.trim();
+  const email=document.getElementById('c-email').value.trim();
+  if(!name||!email){btn.textContent='Please fill in name & email';return;}
+  btn.textContent='✓ Inquiry Sent!';
+  btn.style.background='#27ae60';
+  const event=document.getElementById('c-event').value||'your event';
+  setTimeout(()=>{
+    botMsg(`Sweet! 🍩 We'll reach out to ${email} shortly to chat about donuts for **${event}**.\n\nYou can also submit directly at spudlydonuts.com/catering. We can't wait to make your event extra delicious!`);
+    chips([
+      {t:'🛒 Order online',fn:()=>{window.open(ORDER_URL,'_blank');}},
+      {t:'📍 Visit us',fn:()=>aiChat('Where are your locations?')},
+    ]);
+  },400);
+}
+
+function showDeal(deal){
+  const d=mk('div','sp-deal');
+  d.innerHTML=`<div class="sp-deal-name">${deal.name}</div><div class="sp-deal-desc">${deal.desc}</div><button class="sp-deal-btn" onclick="window.open('${deal.url}','_blank')">${deal.cta} →</button>`;
+  msgs.appendChild(botRow(d));scrollBot();
+}
+
+function sysprompt(){
+  return `You are Sunny, a cheerful and enthusiastic donut guide for Spudly Donuts (spudlydonuts.com), a gourmet homemade donut shop in Utah.
+
+ABOUT SPUDLY DONUTS:
+- Gourmet homemade donuts made fresh daily
+- Two locations: 569 N State St Suite 1E, Lindon UT | 305 S 850 E Unit 101A, Lehi UT
+- Order online at spudlydonuts.toast.site
+- Catering for events: spudlydonuts.com/catering
+- Corporate donut subscriptions for businesses: spudlydonuts.com/businesses
+
+WHAT WE OFFER:
+- Classic glazed and specialty rotating flavors (maple bacon, fruity pebbles, birthday cake, seasonal flavors)
+- Donut boxes — mix and match, perfect for sharing
+- Event catering: weddings, birthday parties, baby showers, corporate events
+- Corporate subscription delivery — reward employees with recurring donut deliveries
+
+YOUR ROLE:
+- Be warm, fun, and enthusiastic — donuts make people happy!
+- Help customers order online, plan event catering, or set up corporate delivery
+- Always push toward ordering or submitting a catering inquiry
+- Keep responses short and sweet — 2-3 sentences max
+- Use donut emojis occasionally but don't overdo it
+- If asked about specific current flavors, let them know flavors rotate and encourage them to check the online menu`;
+}
+
+async function aiChat(text){
+  if(!text.trim()||loading)return;
+  userMsg(text);noChips();inp.value='';loading=true;send.disabled=true;
+  const t=showTyping();
+  try{
+    convo.push({role:'user',content:text});
+    const r=await fetch(PROXY,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:400,system:sysprompt(),messages:convo.slice(-10)})});
+    if(!r.ok)throw new Error(r.status);
+    const d=await r.json();
+    const reply=d.content?.[0]?.text||'';
+    convo.push({role:'assistant',content:reply});
+    t.remove();botMsg(reply);
+    chips([
+      {t:'🛒 Order now',fn:()=>window.open(ORDER_URL,'_blank')},
+      {t:'🎉 Book catering',fn:()=>{noChips();showCateringForm();}},
+      {t:'🍩 More questions',fn:()=>{noChips();inp.focus();}},
+    ]);
+  }catch(e){
+    t.remove();botMsg('Oops! 🍩 Check us out at spudlydonuts.com or order directly at spudlydonuts.toast.site!');
+  }finally{loading=false;send.disabled=false;}
+}
+
+send.addEventListener('click',()=>aiChat(inp.value.trim()));
+inp.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();aiChat(inp.value.trim());}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&open_)spHide();});
+
+function mk(tag,cls){const e=document.createElement(tag);if(cls)e.className=cls;return e;}
+function botRow(c){const r=mk('div','sp-msg b');const a=mk('div','sp-mav');a.textContent='🍩';r.appendChild(a);const w=mk('div');w.style.cssText='display:flex;flex-direction:column;gap:6px;max-width:100%;min-width:0;';w.appendChild(c);r.appendChild(w);return r;}
+function botMsg(text){const b=mk('div','sp-mb');b.style.maxWidth='100%';b.innerHTML=text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');msgs.appendChild(botRow(b));scrollBot();}
+function userMsg(text){const r=mk('div','sp-msg u');const b=mk('div','sp-mb');b.textContent=text;r.appendChild(b);msgs.appendChild(r);scrollBot();}
+function showTyping(){const r=mk('div','sp-msg b');const a=mk('div','sp-mav');a.textContent='🍩';const b=mk('div','sp-mb');b.innerHTML='<div class="sp-tdots"><span></span><span></span><span></span></div>';r.appendChild(a);r.appendChild(b);msgs.appendChild(r);scrollBot();return r;}
+function typing(ms,cb){const t=showTyping();setTimeout(()=>{t.remove();cb();},ms);}
+function chips(list){ch.innerHTML='';list.forEach(({t,fn})=>{const b=mk('button','sp-chip');b.textContent=t;b.addEventListener('click',fn);ch.appendChild(b);});document.getElementById('sp-cw').scrollLeft=0;}
+function noChips(){ch.innerHTML='';}
+function scrollBot(){requestAnimationFrame(()=>{msgs.scrollTop=msgs.scrollHeight;});}
+</script>
+</body>
+</html>
